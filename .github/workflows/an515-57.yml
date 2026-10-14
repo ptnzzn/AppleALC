@@ -1,0 +1,89 @@
+name: AN515-57 release
+
+# Rebuilds the AN515-57 patch on top of the latest upstream AppleALC and publishes the kext as a GitHub release.
+# Runs on demand (Actions → AN515-57 release → Run workflow) and once a month.
+# The rebased tree is only built, never pushed, so upstream changes to workflow files cannot block it.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 1 * *'
+
+permissions:
+  contents: write
+
+env:
+  PROJECT_TYPE: KEXT
+  ACID32: 1
+  JOB_TYPE: BUILD
+  PATCH_BRANCH: an515-57-pin-hold
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.PATCH_BRANCH }}
+          fetch-depth: 0
+
+      - name: Rebase patch onto upstream master
+        id: rebase
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/acidanthera/AppleALC.git
+          git fetch upstream master
+          if ! git rebase upstream/master; then
+            git rebase --abort
+            echo "::error::The AN515-57 patch no longer applies to upstream AppleALC; it needs a manual rebase."
+            exit 1
+          fi
+          ver=$(sed -n 's/.*MODULE_VERSION = \([0-9.]*\);/\1/p' AppleALC.xcodeproj/project.pbxproj | head -1)
+          base=$(git rev-parse --short upstream/master)
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "tag=$ver-an515-57-$base" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if this upstream base was already released
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.rebase.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.rebase.outputs.tag }} already exists, nothing to do."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v5
+        if: steps.exists.outputs.skip != '1'
+        with:
+          repository: acidanthera/MacKernelSDK
+          path: MacKernelSDK
+      - name: CI Bootstrap
+        if: steps.exists.outputs.skip != '1'
+        run: |
+          src=$(/usr/bin/curl -Lfs https://raw.githubusercontent.com/acidanthera/ocbuild/master/ci-bootstrap.sh) && eval "$src" || exit 1
+      - name: Lilu Bootstrap
+        if: steps.exists.outputs.skip != '1'
+        run: |
+          src=$(/usr/bin/curl -Lfs https://raw.githubusercontent.com/acidanthera/Lilu/master/Lilu/Scripts/bootstrap.sh) && eval "$src" || exit 1
+
+      - name: Build
+        if: steps.exists.outputs.skip != '1'
+        run: xcodebuild -jobs 1 -configuration Release -arch ACID32 -arch x86_64
+
+      - name: Publish release
+        if: steps.exists.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<EOF
+          AppleALC ${{ steps.rebase.outputs.version }} (upstream acidanthera/AppleALC@${{ steps.rebase.outputs.base }}) with the AN515-57 / ALC295 patch.
+
+          Unzip, copy \`AppleALC.kext\` into \`EFI/OC/Kexts/\` (replace the old one) and reboot.
+          Keep Lilu up to date as well. Details: see .github/README.md in this repository.
+          EOF
+          gh release create "${{ steps.rebase.outputs.tag }}" build/Release/*.zip \
+            --title "AppleALC ${{ steps.rebase.outputs.version }} – AN515-57 (${{ steps.rebase.outputs.base }})" \
+            --notes-file notes.md
