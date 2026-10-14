@@ -50,7 +50,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "${{ steps.rebase.outputs.tag }}" >/dev/null 2>&1; then
+          if gh release view -R "${{ github.repository }}" "${{ steps.rebase.outputs.tag }}" >/dev/null 2>&1; then
             echo "Release ${{ steps.rebase.outputs.tag }} already exists, nothing to do."
             echo "skip=1" >> "$GITHUB_OUTPUT"
           fi
@@ -84,6 +84,6 @@ jobs:
           Unzip, copy \`AppleALC.kext\` into \`EFI/OC/Kexts/\` (replace the old one) and reboot.
           Keep Lilu up to date as well. Details: see .github/README.md in this repository.
           EOF
-          gh release create "${{ steps.rebase.outputs.tag }}" build/Release/*.zip \
+          gh release create -R "${{ github.repository }}" "${{ steps.rebase.outputs.tag }}" build/Release/*.zip \
             --title "AppleALC ${{ steps.rebase.outputs.version }} – AN515-57 (${{ steps.rebase.outputs.base }})" \
             --notes-file notes.md
