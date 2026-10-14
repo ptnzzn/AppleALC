@@ -62,6 +62,34 @@ public:
 	 */
 	mach_vm_address_t orgIOHDACodecDevice_executeVerb {0};
 
+	/**
+	 *  Pins whose power state and pin widget control are held against AppleHDA
+	 *  (alc-pin-hold property on HDEF: pairs of <nid> <pinctl> bytes).
+	 *  Used for combo jacks whose mic pin must stay powered and biased for the
+	 *  headphone to work, while being declared N/C so AppleHDA does not poll it.
+	 */
+	struct HeldPin {
+		uint8_t nid;
+		uint8_t pinctl;
+	};
+	static constexpr size_t MaxHeldPins = 4;
+	HeldPin heldPins[MaxHeldPins] {};
+	size_t heldPinCount {0};
+
+	/**
+	 *  Pins are only held once AppleHDA has finished building its engines (first stream
+	 *  assignment), otherwise the biased pin reports presence while inputs are probed
+	 *  and AppleHDA publishes no input engine at all.
+	 */
+	bool heldPinsActive {false};
+
+	/**
+	 *  Power up held pins and restore their pin widget controls
+	 *
+	 *  @param hdaCodecDevice IOHDACodecDevice instance
+	 */
+	void applyHeldPins(void *hdaCodecDevice);
+
 private:
 	/**
 	 *	The only allowed instance of this class

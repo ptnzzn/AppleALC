@@ -240,7 +240,20 @@ void AlcEnabler::updateProperties() {
 				}
 			}
 
-			if (!enableHdaVerbs) {
+			if (devInfo->audioBuiltinAnalog) {
+				auto hold = OSDynamicCast(OSData, devInfo->audioBuiltinAnalog->getProperty("alc-pin-hold"));
+				if (hold) {
+					auto bytes = static_cast<const uint8_t *>(hold->getBytesNoCopy());
+					for (size_t i = 0; i + 1 < hold->getLength() && heldPinCount < MaxHeldPins; i += 2) {
+						heldPins[heldPinCount] = {bytes[i], bytes[i + 1]};
+						DBGLOG("alc", "holding pin 0x%02X at pinctl 0x%02X", bytes[i], bytes[i + 1]);
+						heldPinCount++;
+					}
+				}
+			}
+
+			// The executeVerb hook is also needed to hold pins.
+			if (!enableHdaVerbs && heldPinCount == 0) {
 				DBGLOG("alc", "no verb support requested, disabling");
 				ADDPR(kextList)[KextIdIOHDAFamily].switchOff();
 			}
@@ -391,7 +404,50 @@ IOReturn AlcEnabler::IOHDACodecDevice_executeVerb(void *hdaCodecDevice, uint16_t
 		// 4 bit verb
 		DBGLOG("alc", "IOHDACodecDevice::executeVerb with parameters nid = 0x%02X, verb = 0x%X, param = 0x%04X", nid, verb, param);
 	}
-	return FunctionCast(IOHDACodecDevice_executeVerb, callbackAlc->orgIOHDACodecDevice_executeVerb)(hdaCodecDevice, nid, verb, param, output, waitForSuccess);
+	auto self = callbackAlc;
+	for (size_t i = 0; self->heldPinsActive && i < self->heldPinCount; i++) {
+		if (nid != self->heldPins[i].nid)
+			continue;
+		if (verb == 0x705 && param != 0) {
+			DBGLOG("alc", "keeping held pin 0x%02X powered (requested D%u)", nid, param);
+			param = 0;
+		} else if (verb == 0x707 && param != self->heldPins[i].pinctl) {
+			DBGLOG("alc", "keeping held pin 0x%02X at pinctl 0x%02X (requested 0x%02X)", nid, self->heldPins[i].pinctl, param);
+			param = self->heldPins[i].pinctl;
+		}
+	}
+
+	IOReturn ret = FunctionCast(IOHDACodecDevice_executeVerb, self->orgIOHDACodecDevice_executeVerb)(hdaCodecDevice, nid, verb, param, output, waitForSuccess);
+
+	if (self->heldPinCount > 0 && ret == kIOReturnSuccess) {
+		if (verb == 0xF09 && output) {
+			// Held pins are N/C for AppleHDA: hide their presence, otherwise a plugged jack
+			// replaces the internal mic with a bogus external input when jacks are re-polled (e.g. on wake).
+			for (size_t i = 0; i < self->heldPinCount; i++)
+				if (nid == self->heldPins[i].nid)
+					*output &= ~0x80000000U;
+		}
+		if (!self->heldPinsActive && verb == 0x706 && (param & 0xF0) != 0) {
+			// First stream assignment: AppleHDA is done probing, start holding.
+			DBGLOG("alc", "activating held pins");
+			self->heldPinsActive = true;
+			self->applyHeldPins(hdaCodecDevice);
+		} else if (self->heldPinsActive && nid == 0x01 && verb == 0x705 && (param & 0x0F) == 0) {
+			// Pin widget controls are lost while the function group sleeps: restore them whenever it is powered back up.
+			self->applyHeldPins(hdaCodecDevice);
+		}
+	}
+
+	return ret;
+}
+
+void AlcEnabler::applyHeldPins(void *hdaCodecDevice) {
+	auto org = FunctionCast(IOHDACodecDevice_executeVerb, orgIOHDACodecDevice_executeVerb);
+	for (size_t i = 0; i < heldPinCount; i++) {
+		unsigned int out = 0;
+		org(hdaCodecDevice, heldPins[i].nid, 0x705, 0x00, &out, false);
+		org(hdaCodecDevice, heldPins[i].nid, 0x707, heldPins[i].pinctl, &out, false);
+	}
 }
 
 uint32_t AlcEnabler::getAudioLayout(IOService *hdaDriver) {
