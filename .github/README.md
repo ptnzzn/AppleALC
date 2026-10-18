@@ -50,10 +50,8 @@ Tahoe đã xoá AppleHDA khỏi hệ thống. Vì vậy cần thêm [SimpleHDA](
 
 ## Cập nhật khi AppleALC ra bản mới
 
-Bạn không cần làm gì trên máy.
-- Workflow [AN515-57 release](../../actions/workflows/an515-57.yml) tự chạy ngày 1 hàng tháng. Nó lấy code AppleALC mới nhất, gắn bản sửa vào, build và đăng lên Releases.
-- Muốn chạy ngay: vào **Actions → AN515-57 release → Run workflow**.
-- Nếu upstream chưa có gì mới, workflow sẽ không tạo release mới.
+- Không có gì tự build. Khi cần, vào **Actions → AN515-57 release → Run workflow**: nó lấy code AppleALC mới nhất, gắn bản sửa vào, build và đăng lên Releases.
+- Nếu cả AppleALC gốc lẫn bản sửa đều chưa đổi gì, workflow sẽ không tạo release mới.
 - Nếu workflow báo đỏ với dòng "patch no longer applies", nghĩa là code gốc đã đổi chỗ trùng với bản sửa. Khi đó cần sửa tay (rebase) nhánh `an515-57-pin-hold`.
 
 ## Build trên máy (không cần Xcode)
