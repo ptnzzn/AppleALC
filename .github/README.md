@@ -16,7 +16,7 @@ Chính vòng lặp này tạo ra tiếng rè và làm nghẽn việc nhận bi�
 Cách sửa:
 1. Trong layout 13, khai báo `0x19` là không dùng (N/C), nên vòng lặp biến mất.
 2. Thêm property `alc-pin-hold`. Tai nghe 3 chấu trên máy này cần `0x19` luôn bật (D0, pinctl `0x22`), nếu không sẽ câm. AppleALC sẽ giữ pin này luôn bật:
-   - Chỉ bắt đầu giữ sau lần phát âm thanh đầu tiên, để macOS vẫn nhận Internal Microphone lúc khởi động.
+   - Giữ ngay từ lúc khởi động codec (không rè trước lần phát đầu tiên).
    - Bật lại sau mỗi lần sleep/wake.
    - Giấu trạng thái "có jack cắm" của pin này, để mic trong không bị đổi thành "Line In".
 
@@ -38,6 +38,15 @@ Cách sửa:
 5. Reboot.
 
 **Không** dùng file kext từ trang Releases của acidanthera. Bản đó không có bản sửa này.
+
+### macOS 26 Tahoe
+
+Tahoe đã xoá AppleHDA khỏi hệ thống. Vì vậy cần thêm [SimpleHDA](https://github.com/laobamac/SimpleHDA), một kext để OpenCore nạp lại AppleHDA lúc boot mà không đụng tới ổ hệ thống. Đã chạy được trên 26.7.1.
+
+1. Chép `SimpleHDA.kext` vào `EFI/OC/Kexts/`.
+2. Thêm vào `Kernel → Add`, đặt ngay sau AppleALC. Thứ tự đúng là Lilu → AppleALC → SimpleHDA. Đặt `MinKernel` = `25.0.0`.
+3. Boot-args phải có `keepsyms=1`.
+4. Đặt `NVRAM → Add → 7C436110-AB2A-4BBB-A880-FE41995C9F82 → prev-lang:kbd` = `en:252` (kiểu Data hoặc String). Thêm cả key này vào mục `NVRAM → Delete` của cùng GUID. Nếu biến này rỗng, SimpleHDA sẽ đặt tên thiết bị âm thanh bằng tiếng Trung.
 
 ## Cập nhật khi AppleALC ra bản mới
 
