@@ -1,6 +1,6 @@
 name: AN515-57 release
 
-# Rebuilds the AN515-57 patch on top of the latest upstream AppleALC and publishes the kext as a GitHub release.
+# Rebuilds the AN515-57 patch (on new upstream or new patch commits) on top of the latest upstream AppleALC and publishes the kext as a GitHub release.
 # Runs on demand (Actions → AN515-57 release → Run workflow) and once a month.
 # The rebased tree is only built, never pushed, so upstream changes to workflow files cannot block it.
 
@@ -34,6 +34,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/acidanthera/AppleALC.git
           git fetch upstream master
+          patch=$(git rev-parse --short HEAD)
           if ! git rebase upstream/master; then
             git rebase --abort
             echo "::error::The AN515-57 patch no longer applies to upstream AppleALC; it needs a manual rebase."
@@ -43,7 +44,8 @@ jobs:
           base=$(git rev-parse --short upstream/master)
           echo "version=$ver" >> "$GITHUB_OUTPUT"
           echo "base=$base" >> "$GITHUB_OUTPUT"
-          echo "tag=$ver-an515-57-$base" >> "$GITHUB_OUTPUT"
+          echo "patch=$patch" >> "$GITHUB_OUTPUT"
+          echo "tag=$ver-an515-57-$base-$patch" >> "$GITHUB_OUTPUT"
 
       - name: Skip if this upstream base was already released
         id: exists
@@ -79,7 +81,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat > notes.md <<EOF
-          AppleALC ${{ steps.rebase.outputs.version }} (upstream acidanthera/AppleALC@${{ steps.rebase.outputs.base }}) with the AN515-57 / ALC295 patch.
+          AppleALC ${{ steps.rebase.outputs.version }} (upstream acidanthera/AppleALC@${{ steps.rebase.outputs.base }}) with the AN515-57 / ALC295 patch (ptnzzn/AppleALC@${{ steps.rebase.outputs.patch }}).
 
           Unzip, copy \`AppleALC.kext\` into \`EFI/OC/Kexts/\` (replace the old one) and reboot.
           Keep Lilu up to date as well. Details: see .github/README.md in this repository.
