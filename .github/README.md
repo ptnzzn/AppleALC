@@ -3,6 +3,15 @@
 Đây là fork của [acidanthera/AppleALC](https://github.com/acidanthera/AppleALC) có thêm bản sửa âm thanh cho Acer Nitro 5 AN515-57 (codec Realtek ALC295, layout-id 13).
 Code sửa nằm ở nhánh **`an515-57-pin-hold`**. README gốc của AppleALC: [README.md](../README.md).
 
+> **Trạng thái:** đã test trên **macOS 26 Tahoe (26.7.1)**, kết hợp với [SimpleHDA](https://github.com/laobamac/SimpleHDA) (xem mục [macOS 26 Tahoe](#macos-26-tahoe)).
+> Mọi thứ hoạt động như máy Mac thật:
+> - Loa ngoài và tai nghe qua jack 3.5 mm đều có tiếng, không rè, không có tiếng "muỗi kêu".
+> - Cắm/rút jack thì tự chuyển giữa loa và tai nghe.
+> - Internal Microphone thu tiếng bình thường.
+> - Phím âm lượng hoạt động, sleep/wake vẫn giữ âm thanh.
+>
+> Bản mới nhất **chưa được test trên macOS 15 Sequoia**. Các bản trước có chạy trên Sequoia (không cần SimpleHDA), nhưng bản mới chưa được kiểm tra lại trên đó.
+
 ## Bản sửa làm gì
 
 Lỗi trên bản AppleALC gốc:
@@ -41,7 +50,7 @@ Cách sửa:
 
 ### macOS 26 Tahoe
 
-Tahoe đã xoá AppleHDA khỏi hệ thống. Vì vậy cần thêm [SimpleHDA](https://github.com/laobamac/SimpleHDA), một kext để OpenCore nạp lại AppleHDA lúc boot mà không đụng tới ổ hệ thống. Đã chạy được trên 26.7.1.
+Tahoe đã xoá AppleHDA khỏi hệ thống. Vì vậy cần thêm [SimpleHDA](https://github.com/laobamac/SimpleHDA), một kext để OpenCore nạp lại AppleHDA lúc boot mà không đụng tới ổ hệ thống. Đã test trên 26.7.1: AppleALC (bản fork này) + SimpleHDA 1.0.0 + Lilu 1.7.3.
 
 1. Chép `SimpleHDA.kext` vào `EFI/OC/Kexts/`.
 2. Thêm vào `Kernel → Add`, đặt ngay sau AppleALC. Thứ tự đúng là Lilu → AppleALC → SimpleHDA. Đặt `MinKernel` = `25.0.0`.

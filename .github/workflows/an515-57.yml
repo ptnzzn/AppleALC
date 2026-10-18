@@ -81,8 +81,10 @@ jobs:
           cat > notes.md <<EOF
           AppleALC ${{ steps.rebase.outputs.version }} (upstream acidanthera/AppleALC@${{ steps.rebase.outputs.base }}) with the AN515-57 / ALC295 patch (ptnzzn/AppleALC@${{ steps.rebase.outputs.patch }}).
 
-          Unzip, copy \`AppleALC.kext\` into \`EFI/OC/Kexts/\` (replace the old one) and reboot.
-          Keep Lilu up to date as well. Details: see .github/README.md in this repository.
+          Tested on macOS 26 Tahoe (26.7.1) together with SimpleHDA (https://github.com/laobamac/SimpleHDA): speakers, 3.5 mm jack auto-switching, headphones without whine, internal mic, sleep/wake all work. Not yet tested on macOS 15 Sequoia.
+
+          Unzip, copy \`AppleALC.kext\` into \`EFI/OC/Kexts/\` (replace the old one) and reboot. On Tahoe also add SimpleHDA.kext after AppleALC.
+          Keep Lilu up to date as well. Details (Vietnamese): see .github/README.md in this repository.
           EOF
           gh release create -R "${{ github.repository }}" "${{ steps.rebase.outputs.tag }}" build/Release/*.zip \
             --title "AppleALC ${{ steps.rebase.outputs.version }} – AN515-57 (${{ steps.rebase.outputs.base }})" \
