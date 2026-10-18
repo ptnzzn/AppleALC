@@ -77,9 +77,9 @@ public:
 	size_t heldPinCount {0};
 
 	/**
-	 *  Pins are only held once AppleHDA has finished building its engines (first stream
-	 *  assignment), otherwise the biased pin reports presence while inputs are probed
-	 *  and AppleHDA publishes no input engine at all.
+	 *  Set as soon as alc-pin-hold is parsed: held pins are powered from codec init on
+	 *  (no noise before the first playback). Their presence bit is masked, otherwise the
+	 *  biased pin reports a jack while inputs are probed and the internal mic disappears.
 	 */
 	bool heldPinsActive {false};
 

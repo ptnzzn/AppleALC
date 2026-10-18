@@ -249,6 +249,8 @@ void AlcEnabler::updateProperties() {
 						DBGLOG("alc", "holding pin 0x%02X at pinctl 0x%02X", bytes[i], bytes[i + 1]);
 						heldPinCount++;
 					}
+					// Presence of held pins is hidden from AppleHDA, so holding them from the start does not disturb input probing.
+					heldPinsActive = heldPinCount > 0;
 				}
 			}
 
@@ -427,12 +429,7 @@ IOReturn AlcEnabler::IOHDACodecDevice_executeVerb(void *hdaCodecDevice, uint16_t
 				if (nid == self->heldPins[i].nid)
 					*output &= ~0x80000000U;
 		}
-		if (!self->heldPinsActive && verb == 0x706 && (param & 0xF0) != 0) {
-			// First stream assignment: AppleHDA is done probing, start holding.
-			DBGLOG("alc", "activating held pins");
-			self->heldPinsActive = true;
-			self->applyHeldPins(hdaCodecDevice);
-		} else if (self->heldPinsActive && nid == 0x01 && verb == 0x705 && (param & 0x0F) == 0) {
+		if (self->heldPinsActive && nid == 0x01 && verb == 0x705 && (param & 0x0F) == 0) {
 			// Pin widget controls are lost while the function group sleeps: restore them whenever it is powered back up.
 			self->applyHeldPins(hdaCodecDevice);
 		}
